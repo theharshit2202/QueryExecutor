@@ -186,8 +186,10 @@ class DatabaseManager:
                 query_types.append(stmt_type)
                 
                 # Apply LIMIT 10 to SELECT statements if not present
-                if stmt_type == 'SELECT':
-                    stmt_upper = stmt_clean.upper()
+                # Only add LIMIT for statements that actually start with SELECT,
+                # not for SHOW/DESCRIBE/EXPLAIN which are treated as SELECT-like.
+                stmt_upper = stmt_clean.upper()
+                if stmt_upper.startswith('SELECT'):
                     if ' LIMIT ' not in stmt_upper and not stmt_upper.endswith(' LIMIT'):
                         if stmt.strip().endswith(';'):
                             stmt = stmt.strip()[:-1] + ' LIMIT 10;'
