@@ -6,9 +6,9 @@ from flask_login import login_user, logout_user, current_user, login_required
 from auth.forms import LoginForm, CreateUserForm, ResetPasswordForm, BulkUploadForm
 from utils.db import DatabaseManager
 from werkzeug.security import check_password_hash, generate_password_hash
-import psycopg2
-from psycopg2 import Error
-from psycopg2.extras import RealDictCursor
+import psycopg
+from psycopg import Error
+from psycopg import rows
 import csv
 import io
 
@@ -31,7 +31,7 @@ def login():
         try:
             # Use BackOffice DB for user storage (or create a separate auth DB)
             connection = DatabaseManager.get_connection('BackOffice')
-            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor = connection.cursor(row_factory=rows.dict_row)
             
             # Check if users table exists
             cursor.execute("""
@@ -150,7 +150,7 @@ def users_page():
     # Load users
     try:
         connection = DatabaseManager.get_connection('BackOffice')
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        cursor = connection.cursor(row_factory=rows.dict_row)
         cursor.execute("SELECT id, username, role, created_at FROM users ORDER BY created_at DESC")
         users_list = cursor.fetchall()
         cursor.close()

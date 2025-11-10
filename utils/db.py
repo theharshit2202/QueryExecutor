@@ -1,9 +1,9 @@
 """
 Database connection utilities for secure query execution with transaction support.
 """
-import psycopg2
-from psycopg2 import Error
-from psycopg2.extras import RealDictCursor
+import psycopg
+from psycopg import Error
+from psycopg import rows
 from flask import current_app, session
 import re
 
@@ -22,15 +22,14 @@ class DatabaseManager:
         password = current_app.config.get(f'{config_key}_DB_PASSWORD', '')
         
         try:
-            connection = psycopg2.connect(
+            connection = psycopg.connect(
                 host=host,
                 port=int(port),
                 user=user,
                 password=password,
-                database=database_name
+                dbname=database_name,
+                autocommit=autocommit
             )
-            if autocommit:
-                connection.autocommit = True
             current_app.logger.info(f"Connected to {db_type} database: {database_name}@{host}:{port}")
             return connection
         except Error as e:
@@ -55,7 +54,7 @@ class DatabaseManager:
             autocommit (bool): Whether to auto-commit transactions
             
         Returns:
-            psycopg2.connection: Database connection object
+            psycopg.Connection: Database connection object
             
         Raises:
             ValueError: If required configuration is missing
@@ -86,15 +85,14 @@ class DatabaseManager:
             raise ValueError(error_msg)
         
         try:
-            connection = psycopg2.connect(
+            connection = psycopg.connect(
                 host=host,
                 port=int(port),
                 user=user,
                 password=password,
-                database=database
+                dbname=database,
+                autocommit=autocommit
             )
-            if autocommit:
-                connection.autocommit = True
             current_app.logger.info(f"Successfully connected to {db_type} database: {database}@{host}:{port}")
             return connection
         except Error as e:
@@ -153,7 +151,7 @@ class DatabaseManager:
             # Get a connection for executing statements
             # We'll use this for SELECT/read-only, and create individual connections for DML
             connection = DatabaseManager.get_connection(db_type, autocommit=True)
-            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor = connection.cursor(row_factory=rows.dict_row)
             
             # Track current database (for USE statements)
             current_database = db_type
@@ -202,7 +200,7 @@ class DatabaseManager:
                             # Reconnect with new database context
                             connection.close()
                             connection = DatabaseManager._get_connection_with_db(db_type, original_database_name, autocommit=True)
-                            cursor = connection.cursor(cursor_factory=RealDictCursor)
+                            cursor = connection.cursor(row_factory=rows.dict_row)
                         continue
                         
                     elif stmt_type == 'SELECT':
@@ -531,8 +529,8 @@ class DatabaseManager:
         try:
             # Get connection and execute query with commit
             connection = DatabaseManager.get_connection(db_type, autocommit=False)
-            # Use RealDictCursor for dictionary-like results
-            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            # Use dict_row for dictionary-like results
+            cursor = connection.cursor(row_factory=rows.dict_row)
             
             # Re-execute the query
             cursor.execute(query)

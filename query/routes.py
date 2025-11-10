@@ -174,7 +174,7 @@ def commit_changes():
     from flask_wtf.csrf import validate_csrf
     from wtforms import ValidationError
     from flask import current_app
-    from psycopg2 import Error as PostgreSQLError
+    from psycopg import Error as PostgreSQLError
     
     try:
         validate_csrf(request.form.get('csrf_token', ''))
@@ -217,15 +217,15 @@ def commit_changes():
         
         try:
             # Create connection for this statement
-            import psycopg2
-            dml_conn = psycopg2.connect(
+            import psycopg
+            dml_conn = psycopg.connect(
                 host=host,
                 port=int(port),
                 user=db_user,
                 password=password,
-                database=original_database_name
+                dbname=original_database_name,
+                autocommit=False
             )
-            dml_conn.autocommit = False
             dml_cursor = dml_conn.cursor()
             dml_cursor.execute(stmt)
             rows_affected = dml_cursor.rowcount

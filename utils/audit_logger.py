@@ -2,8 +2,8 @@
 Audit logging utilities for tracking query executions.
 """
 from flask import current_app, session
-from psycopg2 import Error
-import psycopg2
+from psycopg import Error
+import psycopg
 from datetime import datetime
 
 
@@ -18,14 +18,14 @@ class AuditLogger:
         """
         try:
             def _connect(prefix: str):
-                conn = psycopg2.connect(
+                conn = psycopg.connect(
                     host=current_app.config.get(f'{prefix}_DB_HOST'),
                     port=current_app.config.get(f'{prefix}_DB_PORT', 5432),
                     user=current_app.config.get(f'{prefix}_DB_USER'),
                     password=current_app.config.get(f'{prefix}_DB_PASSWORD'),
-                    database=current_app.config.get(f'{prefix}_DB_NAME')
+                    dbname=current_app.config.get(f'{prefix}_DB_NAME'),
+                    autocommit=True
                 )
-                conn.autocommit = True
                 return conn
 
             if preferred_db_type in ('BackOffice', 'Portal'):
