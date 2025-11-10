@@ -264,6 +264,48 @@ textarea:focus {
     outline-offset: 2px;
 }
 
+/* CodeMirror Placeholder Styles */
+.CodeMirror-empty {
+    color: #888 !important;
+}
+
+.CodeMirror .cm-placeholder {
+    color: #888 !important;
+    font-style: italic;
+    opacity: 0.8 !important;
+}
+
+/* Placeholder overlay for better visibility on dark theme */
+#sql-editor-wrapper {
+    position: relative;
+}
+
+/* Ensure CodeMirror wrapper can contain absolutely positioned elements */
+.CodeMirror {
+    position: relative !important;
+}
+
+.cm-placeholder-overlay {
+    position: absolute !important;
+    padding: 10px !important;
+    pointer-events: none !important;
+    color: #ffffff !important; /* Pure white for maximum visibility */
+    font-style: normal !important; /* Remove italic for better readability */
+    font-weight: 400 !important;
+    z-index: 99999 !important; /* Extremely high z-index */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important; /* More readable font */
+    font-size: 16px !important; /* Larger font size */
+    line-height: 1.6 !important; /* Better line spacing */
+    white-space: pre-wrap !important;
+    opacity: 0.9 !important; /* Slightly transparent but still very visible */
+    background: transparent !important;
+    display: block !important;
+    visibility: visible !important;
+    overflow: hidden;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.7) !important; /* Strong shadow for contrast on dark background */
+    letter-spacing: 0.3px !important; /* Slight letter spacing for clarity */
+}
+
 /* Print Styles */
 @media print {
     .navbar,

@@ -163,6 +163,45 @@ def users_page():
         try:
             connection = DatabaseManager.get_connection('BackOffice')
             cursor = connection.cursor()
+            
+            # Fix sequence if it's out of sync (e.g., after direct inserts)
+            # This ensures the sequence is set to the correct value (max_id + 1)
+            try:
+                # Get the current max ID
+                cursor.execute("SELECT COALESCE(MAX(id), 0) FROM users;")
+                max_id = cursor.fetchone()[0]
+                next_id = max_id + 1
+                
+                # Reset sequence to next_id (so nextval() will return next_id)
+                # Method 1: Use pg_get_serial_sequence to find sequence name dynamically
+                cursor.execute("""
+                    SELECT setval(
+                        pg_get_serial_sequence('users', 'id'), 
+                        %s, 
+                        false
+                    );
+                """, (next_id,))
+                connection.commit()
+                current_app.logger.info(f"Sequence reset to {next_id}")
+            except Exception as seq_error:
+                # If sequence fix fails, try alternative method with direct sequence name
+                try:
+                    cursor.execute("SELECT COALESCE(MAX(id), 0) FROM users;")
+                    max_id = cursor.fetchone()[0]
+                    next_id = max_id + 1
+                    cursor.execute("SELECT setval('users_id_seq', %s, false);", (next_id,))
+                    connection.commit()
+                    current_app.logger.info(f"Sequence reset to {next_id} (using direct method)")
+                except Exception as e2:
+                    # If both methods fail, log error but try to continue
+                    current_app.logger.error(f"Could not fix sequence: {str(seq_error)}, {str(e2)}")
+                    # Try one more time with a simple query
+                    try:
+                        cursor.execute("SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM users), false);")
+                        connection.commit()
+                    except Exception:
+                        pass
+            
             pwd_hash = generate_password_hash(create_form.password.data)
             cursor.execute(
                 "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)",
@@ -252,6 +291,44 @@ def users_page():
             # Bulk insert users
             connection = DatabaseManager.get_connection('BackOffice')
             cursor = connection.cursor()
+            
+            # Fix sequence if it's out of sync (e.g., after direct inserts)
+            # This ensures the sequence is set to the correct value (max_id + 1)
+            try:
+                # Get the current max ID
+                cursor.execute("SELECT COALESCE(MAX(id), 0) FROM users;")
+                max_id = cursor.fetchone()[0]
+                next_id = max_id + 1
+                
+                # Reset sequence to next_id (so nextval() will return next_id)
+                # Method 1: Use pg_get_serial_sequence to find sequence name dynamically
+                cursor.execute("""
+                    SELECT setval(
+                        pg_get_serial_sequence('users', 'id'), 
+                        %s, 
+                        false
+                    );
+                """, (next_id,))
+                connection.commit()
+                current_app.logger.info(f"Sequence reset to {next_id}")
+            except Exception as seq_error:
+                # If sequence fix fails, try alternative method with direct sequence name
+                try:
+                    cursor.execute("SELECT COALESCE(MAX(id), 0) FROM users;")
+                    max_id = cursor.fetchone()[0]
+                    next_id = max_id + 1
+                    cursor.execute("SELECT setval('users_id_seq', %s, false);", (next_id,))
+                    connection.commit()
+                    current_app.logger.info(f"Sequence reset to {next_id} (using direct method)")
+                except Exception as e2:
+                    # If both methods fail, log error but try to continue
+                    current_app.logger.error(f"Could not fix sequence: {str(seq_error)}, {str(e2)}")
+                    # Try one more time with a simple query
+                    try:
+                        cursor.execute("SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM users), false);")
+                        connection.commit()
+                    except Exception:
+                        pass
             
             success_count = 0
             error_count = 0

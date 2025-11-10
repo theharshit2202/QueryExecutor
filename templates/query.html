@@ -23,8 +23,9 @@
                     
                     <div class="mb-4">
                         {{ form.sql_query.label(class="form-label fw-semibold") }}
-                        <div id="sql-editor-wrapper" class="border rounded">
+                        <div id="sql-editor-wrapper" class="border rounded position-relative">
                             <textarea id="sql_query_editor" name="sql_query" class="d-none"></textarea>
+                            <div id="sql-placeholder-overlay" class="cm-placeholder-overlay d-none"></div>
                         </div>
                         {% if form.sql_query.errors %}
                             <div class="text-danger small mt-1">
@@ -125,6 +126,7 @@
         autoCloseBrackets: true,
         indentUnit: 4,
         lineWrapping: true,
+        placeholder: 'Enter your SQL query here...\n\nExample:\nSELECT * FROM table_name WHERE condition;\n\nSupported: SELECT, INSERT, UPDATE, DELETE, SHOW, DESCRIBE, EXPLAIN',
         extraKeys: {
             "Ctrl-Space": "autocomplete",
             "Tab": function(cm) {
@@ -137,8 +139,64 @@
     // Set editor height
     editor.setSize(null, '400px');
     
+    // Add placeholder functionality for CodeMirror using overlay
+    const placeholderText = 'Enter your SQL query here...\n\nExample:\nSELECT * FROM table_name WHERE condition;\n\nSupported: SELECT, INSERT, UPDATE, DELETE, SHOW, DESCRIBE, EXPLAIN';
+    const placeholderOverlay = document.getElementById('sql-placeholder-overlay');
+    const editorWrapper = document.getElementById('sql-editor-wrapper');
+    let editorHasFocus = false;
+    
+    // Move overlay to CodeMirror's wrapper for better positioning
+    const editorEl = editor.getWrapperElement();
+    editorWrapper.removeChild(placeholderOverlay);
+    editorEl.appendChild(placeholderOverlay);
+    placeholderOverlay.style.position = 'absolute';
+    placeholderOverlay.style.top = '0';
+    placeholderOverlay.style.left = '50px'; // Account for line numbers
+    placeholderOverlay.style.right = '0';
+    placeholderOverlay.style.bottom = '0';
+    
+    function updatePlaceholder() {
+        const isEmpty = editor.getValue().trim() === '';
+        if (isEmpty && !editorHasFocus) {
+            placeholderOverlay.textContent = placeholderText;
+            placeholderOverlay.classList.remove('d-none');
+            placeholderOverlay.style.display = 'block';
+            placeholderOverlay.style.visibility = 'visible';
+        } else {
+            placeholderOverlay.classList.add('d-none');
+            placeholderOverlay.style.display = 'none';
+            placeholderOverlay.style.visibility = 'hidden';
+        }
+    }
+    
+    // Show placeholder on load if editor is empty
+    setTimeout(function() {
+        updatePlaceholder();
+    }, 200); // Delay to ensure editor is fully initialized
+    
+    // Handle focus - hide placeholder when user clicks
+    editor.on('focus', function() {
+        editorHasFocus = true;
+        placeholderOverlay.classList.add('d-none');
+    });
+    
+    // Handle blur - show placeholder if editor is empty
+    editor.on('blur', function() {
+        editorHasFocus = false;
+        setTimeout(updatePlaceholder, 100); // Small delay to check value after blur
+    });
+    
+    // Handle changes - update placeholder visibility
+    editor.on('change', function() {
+        updatePlaceholder();
+    });
+    
+    
+    
     // Update textarea on form submit
     document.getElementById('queryForm').addEventListener('submit', function(e) {
+        // Hide placeholder before saving
+        placeholderOverlay.classList.add('d-none');
         editor.save();
         
         const sqlQuery = editor.getValue().trim();
