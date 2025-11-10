@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - User Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-7">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Users</h5>
+            </div>
+            <div class="card-body">
+                {% if users %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered" id="usersTable">
+                        <thead class="table-primary">
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                            <tr>
+                                <td>{{ u.id }}</td>
+                                <td>{{ u.username }}</td>
+                                <td><span class="badge {{ 'bg-danger' if u.role == 'admin' else 'bg-secondary' }}">{{ u.role }}</span></td>
+                                <td>{{ u.created_at }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info mb-0">No users found.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Create User</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.users_page') }}">
+                    {{ create_form.hidden_tag() }}
+                    <input type="hidden" name="action" value="create" />
+                    <div class="mb-3">
+                        {{ create_form.username.label(class="form-label") }}
+                        {{ create_form.username(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ create_form.password.label(class="form-label") }}
+                        {{ create_form.password(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ create_form.confirm_password.label(class="form-label") }}
+                        {{ create_form.confirm_password(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ create_form.role.label(class="form-label") }}
+                        {{ create_form.role(class="form-select") }}
+                    </div>
+                    <button type="submit" class="btn btn-success">Create</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Bulk Upload Users</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.users_page') }}" enctype="multipart/form-data">
+                    {{ bulk_upload_form.hidden_tag() }}
+                    <input type="hidden" name="action" value="bulk_upload" />
+                    <div class="mb-3">
+                        {{ bulk_upload_form.csv_file.label(class="form-label") }}
+                        {{ bulk_upload_form.csv_file(class="form-control") }}
+                        <small class="form-text text-muted">
+                            CSV format: username,password,role<br>
+                            Example:<br>
+                            <code>username,password,role<br>
+                            john_doe,password123,user<br>
+                            jane_admin,securepass,admin</code>
+                        </small>
+                    </div>
+                    <button type="submit" class="btn btn-info">Upload CSV</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0">Reset Password</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.users_page') }}">
+                    {{ reset_form.hidden_tag() }}
+                    <input type="hidden" name="action" value="reset" />
+                    <div class="mb-3">
+                        {{ reset_form.username.label(class="form-label") }}
+                        {{ reset_form.username(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ reset_form.new_password.label(class="form-label") }}
+                        {{ reset_form.new_password(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ reset_form.confirm_password.label(class="form-label") }}
+                        {{ reset_form.confirm_password(class="form-control") }}
+                    </div>
+                    <button type="submit" class="btn btn-warning">Reset</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(function() {
+    $('#usersTable').DataTable({
+        pageLength: 10,
+        order: []
+    });
+});
+</script>
+{% endblock %}

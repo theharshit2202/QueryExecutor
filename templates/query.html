@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Query Executor - Welcome to Shubham Kotkar 2.0{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+        <div class="card shadow-lg border-0 mb-4">
+            <div class="card-header bg-primary text-white py-3">
+                <h3 class="mb-0 fw-bold">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-database-search me-2" viewBox="0 0 16 16">
+                        <path d="M12.496 8a4.5 4.5 0 0 1-1.703 3.526L9.497 8.5l1.296-.796A4.5 4.5 0 0 1 12.496 8M4 8c0 1.657.832 3.12 2.096 4.001L4.928 8.5l1.168-.5C4.832 7.12 4 5.657 4 8"/>
+                        <path d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 0 .714.698A4.5 4.5 0 0 1 8 4c.818 0 1.578.245 2.143.516a.5.5 0 1 0 .714-.698C11.06 3.707 9.552 3 8 3"/>
+                        <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1z"/>
+                        <path d="M8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                    </svg>
+                    Welcome to Shubham Kotkar 2.0
+                </h3>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('query.query_page') }}" id="queryForm">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-4">
+                        {{ form.sql_query.label(class="form-label fw-semibold") }}
+                        <div id="sql-editor-wrapper" class="border rounded">
+                            <textarea id="sql_query_editor" name="sql_query" class="d-none"></textarea>
+                        </div>
+                        {% if form.sql_query.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.sql_query.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted mt-2 d-block">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-shield-check me-1" viewBox="0 0 16 16">
+                                <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533.12.057.218.093.293.118a.6.6 0 0 0 .101.025.62.62 0 0 0 .1-.025c.076-.025.174-.061.294-.118.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"/>
+                                <path d="M10.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0"/>
+                            </svg>
+                            Supports SELECT, INSERT, UPDATE, DELETE. DDL operations are blocked for security.
+                        </small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.defect_number.label(class="form-label fw-semibold") }}
+                            {{ form.defect_number(class="form-control" + (" is-invalid" if form.defect_number.errors else "")) }}
+                            {% if form.defect_number.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.defect_number.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            {{ form.database.label(class="form-label fw-semibold") }}
+                            {{ form.database(class="form-select" + (" is-invalid" if form.database.errors else "")) }}
+                            {% if form.database.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.database.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg px-4 fw-semibold" id="executeBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-play-fill me-2" viewBox="0 0 16 16">
+                                <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393"/>
+                            </svg>
+                            Execute Query
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="alert alert-info border-0 shadow-sm">
+            <h5 class="alert-heading">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-info-circle-fill me-2" viewBox="0 0 16 16">
+                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-1.808-1.319l-.738-3.468c-.064-.293.006-.399.288-.399l.743.09a.16.16 0 0 1 .162-.107l.668-1.164a.16.16 0 0 1 .162-.107zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
+                </svg>
+                Query Guidelines
+            </h5>
+            <ul class="mb-0">
+                <li>Supports <code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code> statements</li>
+                <li>Multiple statements are allowed (separated by semicolons)</li>
+                <li>DDL operations (CREATE, DROP, ALTER, TRUNCATE) are blocked</li>
+                <li><code>UPDATE</code> and <code>DELETE</code> must include a <code>WHERE</code> clause</li>
+                <li>All queries are logged for audit purposes</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Spinner Modal -->
+<div class="modal fade" id="loadingModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5 class="fw-semibold">Executing Query...</h5>
+                <p class="text-muted mb-0">Please wait while we process your request securely.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize CodeMirror
+    const editor = CodeMirror.fromTextArea(document.getElementById('sql_query_editor'), {
+        mode: 'text/x-sql',
+        theme: 'monokai',
+        lineNumbers: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        indentUnit: 4,
+        lineWrapping: true,
+        extraKeys: {
+            "Ctrl-Space": "autocomplete",
+            "Tab": function(cm) {
+                var spaces = Array(cm.getOption("indentUnit") + 1).join(" ");
+                cm.replaceSelection(spaces);
+            }
+        }
+    });
+    
+    // Set editor height
+    editor.setSize(null, '400px');
+    
+    // Update textarea on form submit
+    document.getElementById('queryForm').addEventListener('submit', function(e) {
+        editor.save();
+        
+        const sqlQuery = editor.getValue().trim();
+        const defectNumber = document.querySelector('input[name="defect_number"]').value.trim();
+        const database = document.querySelector('select[name="database"]').value;
+        
+        // Client-side validation
+        if (!sqlQuery) {
+            e.preventDefault();
+            alert('SQL query is required.');
+            return false;
+        }
+        
+        if (!defectNumber) {
+            e.preventDefault();
+            alert('Defect number is required.');
+            return false;
+        }
+        
+        if (!database) {
+            e.preventDefault();
+            alert('Please select a database.');
+            return false;
+        }
+        
+        // Show loading spinner
+        const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+        loadingModal.show();
+        
+        // Disable submit button
+        document.getElementById('executeBtn').disabled = true;
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Query Results - Welcome to Shubham Kotkar 2.0{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-lg border-0 mb-4">
+            <div class="card-header bg-primary text-white py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0 fw-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-table me-2" viewBox="0 0 16 16">
+                            <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm15 2h-4v3h4zm0 4h-4v3h4zm0 4h-4v3h3a1 1 0 0 0 1-1zm-5 3v-3H6v3zm-5 0v-3H1v3a1 1 0 0 0 1 1zm-4-4h4V8H1zm0-4h4V4H1a1 1 0 0 0-1 1zm5-1v3h4V4zm4 4H6v3h4z"/>
+                        </svg>
+                        Query Results
+                    </h4>
+                    <a href="{{ url_for('query.query_page') }}" class="btn btn-light btn-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left me-1" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+                        </svg>
+                        New Query
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <!-- Query Info -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <small class="text-muted d-block mb-1">Defect Number</small>
+                            <strong class="text-primary">{{ query_data.defect_number }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <small class="text-muted d-block mb-1">Database</small>
+                            <strong class="text-primary">{{ query_data.database }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <small class="text-muted d-block mb-1">Query Type</small>
+                            <strong class="text-primary">{{ query_data.data.query_type }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <small class="text-muted d-block mb-1">Rows Affected</small>
+                            <strong class="text-primary">{{ query_data.data.rows_affected }}</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- SQL Query Display -->
+                <div class="mb-4">
+                    <h6 class="fw-semibold mb-2">Executed Query:</h6>
+                    <div class="bg-dark text-light p-3 rounded font-monospace small" style="max-height: 150px; overflow-y: auto;">
+                        {{ query_data.query }}
+                    </div>
+                </div>
+                
+                {% if query_data.data.query_type == 'SELECT' %}
+                <!-- Results Table with DataTables -->
+                {% if query_data.data.rows %}
+                <div class="table-responsive">
+                    <table id="resultsTable" class="table table-striped table-hover table-bordered">
+                        <thead class="table-primary">
+                            <tr>
+                                {% for column in query_data.data.columns %}
+                                <th>{{ column }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in query_data.data.rows %}
+                            <tr>
+                                {% for column in query_data.data.columns %}
+                                <td>
+                                    {% if row[column] is none %}
+                                        <span class="text-muted fst-italic">NULL</span>
+                                    {% elif row[column] is sameas true %}
+                                        <span class="badge bg-success">True</span>
+                                    {% elif row[column] is sameas false %}
+                                        <span class="badge bg-secondary">False</span>
+                                    {% else %}
+                                        {{ row[column] }}
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-warning text-center">
+                    <h5 class="mt-3">No Results Found</h5>
+                    <p class="text-muted">The query executed successfully but returned no rows.</p>
+                </div>
+                {% endif %}
+                {% else %}
+                <!-- DML Operation Result -->
+                {% if query_data.data.get('committed_statements') or query_data.data.get('failed_statements') %}
+                <!-- Per-statement results -->
+                {% if query_data.data.get('committed_statements') %}
+                <div class="alert alert-success mb-3">
+                    <h6 class="alert-heading">Successfully Committed ({{ query_data.data.committed_statements|length }}):</h6>
+                    <ul class="mb-0">
+                        {% for stmt in query_data.data.committed_statements %}
+                        <li>Query {{ stmt.index }}: {{ stmt.type }} - {{ stmt.rows_affected }} row(s) affected</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                {% if query_data.data.get('failed_statements') %}
+                <div class="alert alert-danger mb-3">
+                    <h6 class="alert-heading">Failed ({{ query_data.data.failed_statements|length }}):</h6>
+                    <ul class="mb-0">
+                        {% for stmt in query_data.data.failed_statements %}
+                        <li>Query {{ stmt.index }}: {{ stmt.error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                {% if query_data.data.get('messages') %}
+                <div class="alert alert-info">
+                    {% for msg in query_data.data.messages %}
+                    <p class="mb-1">{{ msg }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% else %}
+                <!-- Single DML operation (legacy) -->
+                <div class="alert alert-success">
+                    <h5 class="alert-heading">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-check-circle-fill me-2" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 2.043 4.982a.75.75 0 0 0-1.08 1.04l6 6a.75.75 0 0 0 1.154-.114l3.5-5.25a.75.75 0 0 0-.022-1.08z"/>
+                        </svg>
+                        Query Executed Successfully
+                    </h5>
+                    <p class="mb-0">
+                        <strong>{{ query_data.data.query_type }}</strong> query executed successfully.
+                        <strong>{{ query_data.data.rows_affected }}</strong> row(s) affected.
+                    </p>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize DataTables for SELECT results
+    {% if query_data.data.query_type == 'SELECT' and query_data.data.rows %}
+    $(document).ready(function() {
+        $('#resultsTable').DataTable({
+            pageLength: 50,
+            lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "All"]],
+            order: [],
+            dom: 'Bfrtip',
+            buttons: [
+                'copy', 'csv', 'excel', 'pdf', 'print'
+            ]
+        });
+    });
+    {% endif %}
+    
+    // Commit button handler
+    {% if query_data.data.query_type != 'SELECT' %}
+    document.getElementById('commitBtn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to commit these changes?')) {
+            const formData = new FormData();
+            formData.append('csrf_token', '{{ csrf_token() }}');
+            
+            fetch('{{ url_for("query.commit_changes") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(async (response) => {
+                const ct = response.headers.get('content-type') || '';
+                if (ct.includes('application/json')) {
+                    const data = await response.json();
+                    if (data.success) {
+                        alert('Changes committed successfully!');
+                        window.location.href = '{{ url_for("query.query_page") }}';
+                    } else {
+                        alert('Error: ' + (data.message || 'Unknown error'));
+                    }
+                } else {
+                    const text = await response.text();
+                    alert('Error (non-JSON response): ' + text);
+                }
+            })
+            .catch(error => {
+                alert('Error committing changes: ' + error);
+            });
+        }
+    });
+    
+    // Rollback button handler
+    document.getElementById('rollbackBtn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to rollback these changes?')) {
+            const formData = new FormData();
+            formData.append('csrf_token', '{{ csrf_token() }}');
+            
+            fetch('{{ url_for("query.rollback_changes") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(async (response) => {
+                const ct = response.headers.get('content-type') || '';
+                if (ct.includes('application/json')) {
+                    const data = await response.json();
+                    if (data.success) {
+                        alert('Changes rolled back successfully!');
+                        window.location.href = '{{ url_for("query.query_page") }}';
+                    } else {
+                        alert('Error: ' + (data.message || 'Unknown error'));
+                    }
+                } else {
+                    const text = await response.text();
+                    alert('Error (non-JSON response): ' + text);
+                }
+            })
+            .catch(error => {
+                alert('Error rolling back changes: ' + error);
+            });
+        }
+    });
+    {% endif %}
+</script>
+{% endblock %}

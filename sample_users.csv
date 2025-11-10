@@ -1,0 +1,6 @@
+username,password,role
+john_doe,password123,user
+jane_admin,securepass456,admin
+test_user,testpass123,user
+admin_user,adminpass789,admin
+
