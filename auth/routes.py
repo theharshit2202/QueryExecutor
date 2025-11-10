@@ -6,8 +6,9 @@ from flask_login import login_user, logout_user, current_user, login_required
 from auth.forms import LoginForm, CreateUserForm, ResetPasswordForm, BulkUploadForm
 from utils.db import DatabaseManager
 from werkzeug.security import check_password_hash, generate_password_hash
-import mysql.connector
-from mysql.connector import Error
+import psycopg2
+from psycopg2 import Error
+from psycopg2.extras import RealDictCursor
 import csv
 import io
 
@@ -30,42 +31,49 @@ def login():
         try:
             # Use BackOffice DB for user storage (or create a separate auth DB)
             connection = DatabaseManager.get_connection('BackOffice')
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
             
             # Check if users table exists
             cursor.execute("""
                 SELECT table_name 
                 FROM information_schema.tables 
-                WHERE table_schema = DATABASE() 
+                WHERE table_schema = 'public' 
                 AND table_name = 'users'
             """)
             
             if not cursor.fetchone():
                 # Create users table if it doesn't exist
                 cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
+                    CREATE TABLE users (
+                        id SERIAL PRIMARY KEY,
                         username VARCHAR(100) UNIQUE NOT NULL,
                         password_hash VARCHAR(255) NOT NULL,
                         role VARCHAR(20) NOT NULL DEFAULT 'user',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        INDEX idx_username (username)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
                 """)
+                cursor.execute("CREATE INDEX idx_username ON users(username);")
                 connection.commit()
                 
                 # Create default admin user if no users exist
                 default_password_hash = generate_password_hash('password')
                 cursor.execute("""
-                    INSERT IGNORE INTO users (username, password_hash, role)
+                    INSERT INTO users (username, password_hash, role)
                     VALUES ('admin', %s, 'admin')
+                    ON CONFLICT (username) DO NOTHING
                 """, (default_password_hash,))
                 connection.commit()
             
             # Ensure role column exists (migration safety)
             try:
-                cursor.execute("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'")
-                connection.commit()
+                cursor.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'users' AND column_name = 'role'
+                """)
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'")
+                    connection.commit()
             except Exception:
                 pass
 
@@ -142,7 +150,7 @@ def users_page():
     # Load users
     try:
         connection = DatabaseManager.get_connection('BackOffice')
-        cursor = connection.cursor(dictionary=True, buffered=True)
+        cursor = connection.cursor(cursor_factory=RealDictCursor)
         cursor.execute("SELECT id, username, role, created_at FROM users ORDER BY created_at DESC")
         users_list = cursor.fetchall()
         cursor.close()
@@ -258,7 +266,8 @@ def users_page():
                     )
                     success_count += 1
                 except Error as e:
-                    if e.errno == 1062:  # Duplicate entry
+                    # PostgreSQL error code for unique violation is 23505
+                    if 'unique' in str(e).lower() or 'duplicate' in str(e).lower() or (hasattr(e, 'pgcode') and e.pgcode == '23505'):
                         duplicate_count += 1
                     else:
                         error_count += 1

@@ -1,8 +1,9 @@
 """
 Database connection utilities for secure query execution with transaction support.
 """
-import mysql.connector
-from mysql.connector import Error
+import psycopg2
+from psycopg2 import Error
+from psycopg2.extras import RealDictCursor
 from flask import current_app, session
 import re
 
@@ -16,33 +17,31 @@ class DatabaseManager:
         config_key = 'PORTAL' if db_type == 'Portal' else 'BACKOFFICE'
         
         host = current_app.config.get(f'{config_key}_DB_HOST', '')
-        port = current_app.config.get(f'{config_key}_DB_PORT', 3306)
+        port = current_app.config.get(f'{config_key}_DB_PORT', 5432)
         user = current_app.config.get(f'{config_key}_DB_USER', '')
         password = current_app.config.get(f'{config_key}_DB_PASSWORD', '')
         
-        config = {
-            'host': host,
-            'port': int(port),
-            'user': user,
-            'password': password,
-            'database': database_name,
-            'autocommit': autocommit,
-            'charset': 'utf8mb4',
-            'collation': 'utf8mb4_unicode_ci'
-        }
-        
         try:
-            connection = mysql.connector.connect(**config)
+            connection = psycopg2.connect(
+                host=host,
+                port=int(port),
+                user=user,
+                password=password,
+                database=database_name
+            )
+            if autocommit:
+                connection.autocommit = True
             current_app.logger.info(f"Connected to {db_type} database: {database_name}@{host}:{port}")
             return connection
         except Error as e:
             error_msg = f"Failed to connect to {db_type} database '{database_name}' at {host}:{port}. Error: {str(e)}"
             current_app.logger.error(error_msg)
-            if e.errno == 1045:
+            # PostgreSQL error codes
+            if 'password authentication failed' in str(e).lower() or 'authentication failed' in str(e).lower():
                 error_msg = f"Access denied for {db_type} database. Please check your username and password in .env file."
-            elif e.errno == 1049:
+            elif 'database' in str(e).lower() and 'does not exist' in str(e).lower():
                 error_msg = f"Database '{database_name}' does not exist for {db_type}. Please create the database or check the database name."
-            elif e.errno == 2003:
+            elif 'could not connect' in str(e).lower() or 'connection refused' in str(e).lower():
                 error_msg = f"Cannot connect to {db_type} database server at {host}:{port}. Please check if the server is running and the host/port are correct."
             raise ValueError(error_msg) from e
     
@@ -56,7 +55,7 @@ class DatabaseManager:
             autocommit (bool): Whether to auto-commit transactions
             
         Returns:
-            mysql.connector.connection: Database connection object
+            psycopg2.connection: Database connection object
             
         Raises:
             ValueError: If required configuration is missing
@@ -65,7 +64,7 @@ class DatabaseManager:
         config_key = 'PORTAL' if db_type == 'Portal' else 'BACKOFFICE'
         
         host = current_app.config.get(f'{config_key}_DB_HOST', '')
-        port = current_app.config.get(f'{config_key}_DB_PORT', 3306)
+        port = current_app.config.get(f'{config_key}_DB_PORT', 5432)
         user = current_app.config.get(f'{config_key}_DB_USER', '')
         password = current_app.config.get(f'{config_key}_DB_PASSWORD', '')
         database = current_app.config.get(f'{config_key}_DB_NAME', '')
@@ -86,30 +85,27 @@ class DatabaseManager:
             current_app.logger.error(error_msg)
             raise ValueError(error_msg)
         
-        config = {
-            'host': host,
-            'port': int(port),
-            'user': user,
-            'password': password,
-            'database': database,
-            'autocommit': autocommit,
-            'charset': 'utf8mb4',
-            'collation': 'utf8mb4_unicode_ci'
-        }
-        
         try:
-            connection = mysql.connector.connect(**config)
+            connection = psycopg2.connect(
+                host=host,
+                port=int(port),
+                user=user,
+                password=password,
+                database=database
+            )
+            if autocommit:
+                connection.autocommit = True
             current_app.logger.info(f"Successfully connected to {db_type} database: {database}@{host}:{port}")
             return connection
         except Error as e:
             error_msg = f"Failed to connect to {db_type} database '{database}' at {host}:{port}. Error: {str(e)}"
             current_app.logger.error(error_msg)
-            # Provide more helpful error message
-            if e.errno == 1045:
+            # PostgreSQL error codes
+            if 'password authentication failed' in str(e).lower() or 'authentication failed' in str(e).lower():
                 error_msg = f"Access denied for {db_type} database. Please check your username and password in .env file."
-            elif e.errno == 1049:
+            elif 'database' in str(e).lower() and 'does not exist' in str(e).lower():
                 error_msg = f"Database '{database}' does not exist for {db_type}. Please create the database or check the database name in .env file."
-            elif e.errno == 2003:
+            elif 'could not connect' in str(e).lower() or 'connection refused' in str(e).lower():
                 error_msg = f"Cannot connect to {db_type} database server at {host}:{port}. Please check if the server is running and the host/port are correct."
             raise ValueError(error_msg) from e
     
@@ -157,7 +153,7 @@ class DatabaseManager:
             # Get a connection for executing statements
             # We'll use this for SELECT/read-only, and create individual connections for DML
             connection = DatabaseManager.get_connection(db_type, autocommit=True)
-            cursor = connection.cursor(dictionary=True, buffered=True)
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
             
             # Track current database (for USE statements)
             current_database = db_type
@@ -198,16 +194,15 @@ class DatabaseManager:
                 
                 try:
                     if stmt_type == 'USE':
-                        # USE statement changes database context
-                        cursor.execute(stmt)
-                        # Extract database name from USE statement
+                        # PostgreSQL doesn't support USE statement
+                        # Instead, we reconnect to the new database
                         use_match = re.search(r'USE\s+([^\s;]+)', stmt_clean, re.IGNORECASE)
                         if use_match:
                             original_database_name = use_match.group(1)
-                        # Reconnect with new database context
-                        connection.close()
-                        connection = DatabaseManager._get_connection_with_db(db_type, original_database_name, autocommit=True)
-                        cursor = connection.cursor(dictionary=True, buffered=True)
+                            # Reconnect with new database context
+                            connection.close()
+                            connection = DatabaseManager._get_connection_with_db(db_type, original_database_name, autocommit=True)
+                            cursor = connection.cursor(cursor_factory=RealDictCursor)
                         continue
                         
                     elif stmt_type == 'SELECT':
@@ -536,8 +531,8 @@ class DatabaseManager:
         try:
             # Get connection and execute query with commit
             connection = DatabaseManager.get_connection(db_type, autocommit=False)
-            # Buffered cursor ensures all results are consumed on close
-            cursor = connection.cursor(buffered=True)
+            # Use RealDictCursor for dictionary-like results
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
             
             # Re-execute the query
             cursor.execute(query)

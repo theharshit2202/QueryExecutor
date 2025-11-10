@@ -98,9 +98,10 @@ def load_user(user_id):
     # Try database lookup first
     try:
         from utils.db import DatabaseManager
-        from mysql.connector import Error
+        from psycopg2 import Error
+        from psycopg2.extras import RealDictCursor
         connection = DatabaseManager.get_connection('BackOffice')
-        cursor = connection.cursor(dictionary=True, buffered=True)
+        cursor = connection.cursor(cursor_factory=RealDictCursor)
         cursor.execute("SELECT id, username, password_hash, role FROM users WHERE id = %s", (user_id,))
         row = cursor.fetchone()
         cursor.close()

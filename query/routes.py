@@ -174,7 +174,7 @@ def commit_changes():
     from flask_wtf.csrf import validate_csrf
     from wtforms import ValidationError
     from flask import current_app
-    from mysql.connector import Error as MySQLError
+    from psycopg2 import Error as PostgreSQLError
     
     try:
         validate_csrf(request.form.get('csrf_token', ''))
@@ -196,8 +196,8 @@ def commit_changes():
     
     # Get database connection details
     host = current_app.config.get(f'{config_key}_DB_HOST', '')
-    port = current_app.config.get(f'{config_key}_DB_PORT', 3306)
-    user = current_app.config.get(f'{config_key}_DB_USER', '')
+    port = current_app.config.get(f'{config_key}_DB_PORT', 5432)
+    db_user = current_app.config.get(f'{config_key}_DB_USER', '')
     password = current_app.config.get(f'{config_key}_DB_PASSWORD', '')
     
     # Execute and commit each threshold-exceeded statement individually
@@ -217,18 +217,15 @@ def commit_changes():
         
         try:
             # Create connection for this statement
-            import mysql.connector
-            config = {
-                'host': host,
-                'port': int(port),
-                'user': user,
-                'password': password,
-                'database': original_database_name,
-                'autocommit': False,
-                'charset': 'utf8mb4',
-                'collation': 'utf8mb4_unicode_ci'
-            }
-            dml_conn = mysql.connector.connect(**config)
+            import psycopg2
+            dml_conn = psycopg2.connect(
+                host=host,
+                port=int(port),
+                user=db_user,
+                password=password,
+                database=original_database_name
+            )
+            dml_conn.autocommit = False
             dml_cursor = dml_conn.cursor()
             dml_cursor.execute(stmt)
             rows_affected = dml_cursor.rowcount
@@ -247,7 +244,7 @@ def commit_changes():
             committed_count += 1
             total_rows += rows_affected
             
-        except MySQLError as e:
+        except PostgreSQLError as e:
             error_msg = str(e)
             current_app.logger.error(f"Failed to commit statement {stmt_idx}: {error_msg}")
             

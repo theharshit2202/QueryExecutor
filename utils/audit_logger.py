@@ -2,8 +2,8 @@
 Audit logging utilities for tracking query executions.
 """
 from flask import current_app, session
-from mysql.connector import Error
-import mysql.connector
+from psycopg2 import Error
+import psycopg2
 from datetime import datetime
 
 
@@ -18,16 +18,15 @@ class AuditLogger:
         """
         try:
             def _connect(prefix: str):
-                cfg = {
-                    'host': current_app.config.get(f'{prefix}_DB_HOST'),
-                    'port': current_app.config.get(f'{prefix}_DB_PORT', 3306),
-                    'user': current_app.config.get(f'{prefix}_DB_USER'),
-                    'password': current_app.config.get(f'{prefix}_DB_PASSWORD'),
-                    'database': current_app.config.get(f'{prefix}_DB_NAME'),
-                    'autocommit': True,
-                    'charset': 'utf8mb4'
-                }
-                return mysql.connector.connect(**cfg)
+                conn = psycopg2.connect(
+                    host=current_app.config.get(f'{prefix}_DB_HOST'),
+                    port=current_app.config.get(f'{prefix}_DB_PORT', 5432),
+                    user=current_app.config.get(f'{prefix}_DB_USER'),
+                    password=current_app.config.get(f'{prefix}_DB_PASSWORD'),
+                    database=current_app.config.get(f'{prefix}_DB_NAME')
+                )
+                conn.autocommit = True
+                return conn
 
             if preferred_db_type in ('BackOffice', 'Portal'):
                 return _connect('PORTAL' if preferred_db_type == 'Portal' else 'BACKOFFICE')
@@ -51,35 +50,77 @@ class AuditLogger:
         
         try:
             cursor = connection.cursor()
-            create_table_sql = """
-            CREATE TABLE IF NOT EXISTS audit_log (
-                audit_id INT AUTO_INCREMENT PRIMARY KEY,
-                audit_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                executed_by_user VARCHAR(100),
-                query_text TEXT,
-                database_name VARCHAR(50),
-                status ENUM('Pending','Success','Error','Rejected by user') DEFAULT 'Pending',
-                defect_number VARCHAR(50),
-                rows_affected INT DEFAULT 0,
-                error_message TEXT,
-                INDEX idx_user (executed_by_user),
-                INDEX idx_timestamp (audit_timestamp),
-                INDEX idx_status (status)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            """
-            cursor.execute(create_table_sql)
-            connection.commit()
+            # Check if table exists
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'audit_log'
+                );
+            """)
+            table_exists = cursor.fetchone()[0]
             
-            # Migrate existing table to remove 'Committed' and add 'Rejected by user' status if needed
-            try:
+            if not table_exists:
+                # Create status type if it doesn't exist
                 cursor.execute("""
-                    ALTER TABLE audit_log 
-                    MODIFY COLUMN status ENUM('Pending','Success','Error','Rejected by user') DEFAULT 'Pending'
+                    DO $$ BEGIN
+                        CREATE TYPE audit_status AS ENUM ('Pending','Success','Error','Rejected by user');
+                    EXCEPTION
+                        WHEN duplicate_object THEN null;
+                    END $$;
                 """)
+                
+                create_table_sql = """
+                CREATE TABLE audit_log (
+                    audit_id SERIAL PRIMARY KEY,
+                    audit_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    executed_by_user VARCHAR(100),
+                    query_text TEXT,
+                    database_name VARCHAR(50),
+                    status audit_status DEFAULT 'Pending',
+                    defect_number VARCHAR(50),
+                    rows_affected INTEGER DEFAULT 0,
+                    error_message TEXT
+                );
+                """
+                cursor.execute(create_table_sql)
+                
+                # Create indexes
+                cursor.execute("CREATE INDEX idx_user ON audit_log(executed_by_user);")
+                cursor.execute("CREATE INDEX idx_timestamp ON audit_log(audit_timestamp);")
+                cursor.execute("CREATE INDEX idx_status ON audit_log(status);")
                 connection.commit()
-            except Error:
-                # Column might already have the correct ENUM, ignore error
-                pass
+            else:
+                # Check if status column needs to be updated (migration)
+                try:
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name = 'audit_log' 
+                            AND column_name = 'status'
+                            AND data_type = 'USER-DEFINED'
+                        );
+                    """)
+                    has_enum = cursor.fetchone()[0]
+                    
+                    if not has_enum:
+                        # Migrate from VARCHAR to ENUM if needed
+                        cursor.execute("""
+                            DO $$ BEGIN
+                                CREATE TYPE audit_status AS ENUM ('Pending','Success','Error','Rejected by user');
+                            EXCEPTION
+                                WHEN duplicate_object THEN null;
+                            END $$;
+                        """)
+                        cursor.execute("""
+                            ALTER TABLE audit_log 
+                            ALTER COLUMN status TYPE audit_status 
+                            USING status::audit_status;
+                        """)
+                        connection.commit()
+                except Error:
+                    # Migration might not be needed, ignore error
+                    pass
             
             cursor.close()
             return True
