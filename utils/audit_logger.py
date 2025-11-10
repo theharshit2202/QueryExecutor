@@ -162,12 +162,15 @@ class AuditLogger:
             INSERT INTO audit_log 
             (executed_by_user, query_text, database_name, defect_number, status, rows_affected)
             VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING audit_id
             """
 
             audit_ids = []
             for q in queries:
                 cursor.execute(insert_sql, (user, q, database_name, defect_number, status, rows_affected))
-                audit_ids.append(cursor.lastrowid)
+                result = cursor.fetchone()
+                if result:
+                    audit_ids.append(result[0])
 
             connection.commit()
             cursor.close()
@@ -220,9 +223,11 @@ class AuditLogger:
             INSERT INTO audit_log 
             (executed_by_user, query_text, database_name, defect_number, status)
             VALUES (%s, %s, %s, %s, 'Pending')
+            RETURNING audit_id
             """
             cursor.execute(insert_sql, (user, combined_query, database_name, defect_number))
-            audit_id = cursor.lastrowid
+            result = cursor.fetchone()
+            audit_id = result[0] if result else None
             
             connection.commit()
             cursor.close()
