@@ -156,20 +156,36 @@
     placeholderOverlay.style.bottom = '0';
     
     function updatePlaceholder() {
+        if (!placeholderOverlay) return; // Safety check
+        
         const editorValue = editor.getValue().trim();
         const charCount = editorValue.length;
-        // Hide placeholder if user has typed 3 or more characters, or if editor has focus
-        if (charCount >= 3 || editorHasFocus) {
+        
+        // Always hide placeholder if user has typed 3 or more characters
+        if (charCount >= 3) {
+            // Aggressively hide the placeholder
+            placeholderOverlay.style.setProperty('display', 'none', 'important');
+            placeholderOverlay.style.setProperty('visibility', 'hidden', 'important');
+            placeholderOverlay.style.setProperty('opacity', '0', 'important');
             placeholderOverlay.classList.add('d-none');
-            placeholderOverlay.style.display = 'none';
-            placeholderOverlay.style.visibility = 'hidden';
-        } else {
-            // Show placeholder only if editor is empty or has less than 3 characters and doesn't have focus
-            placeholderOverlay.textContent = placeholderText;
-            placeholderOverlay.classList.remove('d-none');
-            placeholderOverlay.style.display = 'block';
-            placeholderOverlay.style.visibility = 'visible';
+            return; // Exit early - don't show it
         }
+        
+        // Hide placeholder if editor has focus (user is actively typing)
+        if (editorHasFocus) {
+            placeholderOverlay.style.setProperty('display', 'none', 'important');
+            placeholderOverlay.style.setProperty('visibility', 'hidden', 'important');
+            placeholderOverlay.style.setProperty('opacity', '0', 'important');
+            placeholderOverlay.classList.add('d-none');
+            return; // Exit early - don't show it
+        }
+        
+        // Show placeholder only if editor is empty or has less than 3 characters and doesn't have focus
+        placeholderOverlay.textContent = placeholderText;
+        placeholderOverlay.style.setProperty('display', 'block', 'important');
+        placeholderOverlay.style.setProperty('visibility', 'visible', 'important');
+        placeholderOverlay.style.setProperty('opacity', '0.9', 'important');
+        placeholderOverlay.classList.remove('d-none');
     }
     
     // Show placeholder on load if editor is empty
@@ -180,18 +196,28 @@
     // Handle focus - hide placeholder when user clicks
     editor.on('focus', function() {
         editorHasFocus = true;
-        placeholderOverlay.classList.add('d-none');
+        updatePlaceholder(); // Use the function instead of direct manipulation
     });
     
-    // Handle blur - show placeholder if editor is empty
+    // Handle blur - show placeholder if editor is empty or has less than 3 chars
     editor.on('blur', function() {
         editorHasFocus = false;
         setTimeout(updatePlaceholder, 100); // Small delay to check value after blur
     });
     
-    // Handle changes - update placeholder visibility
+    // Handle changes - update placeholder visibility immediately on every keystroke
     editor.on('change', function() {
-        updatePlaceholder();
+        // Use requestAnimationFrame for immediate visual update
+        requestAnimationFrame(function() {
+            updatePlaceholder();
+        });
+    });
+    
+    // Also listen to cursor activity for more responsive updates
+    editor.on('cursorActivity', function() {
+        requestAnimationFrame(function() {
+            updatePlaceholder();
+        });
     });
     
     
