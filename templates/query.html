@@ -156,16 +156,19 @@
     placeholderOverlay.style.bottom = '0';
     
     function updatePlaceholder() {
-        const isEmpty = editor.getValue().trim() === '';
-        if (isEmpty && !editorHasFocus) {
+        const editorValue = editor.getValue().trim();
+        const charCount = editorValue.length;
+        // Hide placeholder if user has typed 3 or more characters, or if editor has focus
+        if (charCount >= 3 || editorHasFocus) {
+            placeholderOverlay.classList.add('d-none');
+            placeholderOverlay.style.display = 'none';
+            placeholderOverlay.style.visibility = 'hidden';
+        } else {
+            // Show placeholder only if editor is empty or has less than 3 characters and doesn't have focus
             placeholderOverlay.textContent = placeholderText;
             placeholderOverlay.classList.remove('d-none');
             placeholderOverlay.style.display = 'block';
             placeholderOverlay.style.visibility = 'visible';
-        } else {
-            placeholderOverlay.classList.add('d-none');
-            placeholderOverlay.style.display = 'none';
-            placeholderOverlay.style.visibility = 'hidden';
         }
     }
     
